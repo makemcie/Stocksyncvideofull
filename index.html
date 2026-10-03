@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stock Sync · Pexels</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #101410;
+    --bg2: #181d18;
+    --line: #2a332c;
+    --ink: #eef3ee;
+    --muted: #93a094;
+    --accent: #d6ff4a;
+    --accent-ink: #172000;
+    --warn: #ffb020;
+    --bad: #ff6d57;
+    --ok: #7dffa8;
+    --card: #1c231d;
+    --shadow: 0 10px 30px rgba(0,0,0,.28);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Avenir Next", "Segoe UI", sans-serif; }
+  body { padding-bottom: 92px; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  a { color: var(--accent); }
+  .wrap { width: min(980px, calc(100% - 28px)); margin: 0 auto; }
+  header.top { padding: 22px 0 8px; display: flex; justify-content: space-between; gap: 12px; align-items: end; }
+  .brand { display: flex; gap: 12px; align-items: center; }
+  .mark { width: 36px; height: 36px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 800; }
+  h1 { font-size: 22px; line-height: 1; margin: 0; letter-spacing: -.03em; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .panel { background: var(--bg2); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 12px 0; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  label.field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); flex: 1; min-width: 140px; }
+  input[type="password"], input[type="text"], input[type="number"], select {
+    background: #101410; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%;
+  }
+  .btn { border: 0; border-radius: 999px; padding: 10px 14px; background: #2a332c; color: var(--ink); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .drop {
+    border: 1.5px dashed #445246; border-radius: 16px; padding: 18px; text-align: center; background: #141a15;
+  }
+  .drop.hot { border-color: var(--accent); background: #1b2414; }
+  .drop strong { display: block; margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .pill { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; color: var(--muted); }
+  .pill.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+  .msg { margin-top: 10px; font-size: 13px; line-height: 1.4; }
+  .msg.bad { color: var(--bad); }
+  .msg.ok { color: var(--ok); }
+  .msg.warn { color: var(--warn); }
+  .progress { height: 6px; background: #101410; border-radius: 99px; overflow: hidden; margin-top: 10px; display: none; }
+  .progress > span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .seg { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; margin: 10px 0; }
+  .seg.head { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+  .time { font-variant-numeric: tabular-nums; font-size: 12px; letter-spacing: .04em; color: var(--accent); }
+  .audio { font-size: 15px; margin: 4px 0; }
+  .q { width: 100%; background: #101410; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-top: 6px; }
+  .alts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+  @media (min-width: 760px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .clip { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #101410; text-align: left; padding: 0; position: relative; }
+  .clip.picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .clip img { width: 100%; aspect-ratio: 16/10; object-fit: cover; display: block; background: #0b0e0b; }
+  .preview { width: 100%; max-height: 280px; margin-top: 10px; border-radius: 12px; background: #0b0e0b; display: block; }
+  .meta { padding: 7px 8px 8px; font-size: 11px; color: var(--muted); line-height: 1.35; }
+  .meta b { color: var(--ink); font-weight: 650; }
+  .check { position: absolute; top: 6px; right: 6px; background: #101410cc; border-radius: 99px; padding: 2px 6px; font-size: 11px; }
+  .clip.picked .check { background: var(--accent); color: var(--accent-ink); }
+  .dock {
+    position: fixed; left: 0; right: 0; bottom: 0; background: #121712f2; border-top: 1px solid var(--line);
+    backdrop-filter: blur(10px); padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  }
+  .dock .wrap { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .dock small { color: var(--muted); display: block; }
+  .empty { color: var(--muted); text-align: center; padding: 28px 8px; }
+  .modal { position: fixed; inset: 0; background: #000c; display: none; place-items: center; padding: 16px; z-index: 5; }
+  .modal.open { display: grid; }
+  .modal video { width: min(900px, 100%); max-height: 70vh; background: #000; border-radius: 12px; }
+  .credit { font-size: 12px; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="mark">S</div>
+        <div>
+          <h1>Stock Sync</h1>
+          <div class="sub">Hoja de tiempos → búsqueda en <a href="https://www.pexels.com/videos/" target="_blank" rel="noopener">Pexels</a> → un ZIP</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="row">
+        <label class="field">Clave API de Pexels
+          <input id="apiKey" type="password" placeholder="Pega tu clave gratuita" autocomplete="off">
+        </label>
+        <button class="btn" id="saveKey" type="button">Guardar</button>
+        <button class="btn ghost" id="forgetKey" type="button">Olvidar</button>
+      </div>
+      <p class="hint">La clave se queda en este teléfono o computador. Créala gratis en <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">pexels.com/api</a>. Pexels pide atribución: el ZIP incluye autor y enlace de cada clip.</p>
+      <div id="keyMsg" class="msg"></div>
+    </section>
+
+    <section class="panel">
+      <div class="drop" id="drop">
+        <strong>Suelta el PDF o el CSV</strong>
+        <span class="hint">Columnas: tiempo, lo que suena, búsqueda, alternativa. También sirve el PDF de la hoja.</span>
+        <div class="row" style="justify-content:center; margin-top:12px">
+          <button class="btn primary" id="pickFile" type="button">Elegir archivo</button>
+          <button class="btn" id="loadExample" type="button">Cargar Arthur</button>
+        </div>
+        <input id="file" type="file" accept=".pdf,.csv,text/csv,application/pdf" hidden>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <label class="field">Orientación
+          <select id="orientation">
+            <option value="">Cualquiera</option>
+            <option value="landscape">Horizontal (Facebook)</option>
+            <option value="portrait">Vertical (Reels)</option>
+            <option value="square">Cuadrado</option>
+          </select>
+        </label>
+        <label class="field">Calidad al bajar
+          <select id="quality">
+            <option value="light">Ligera · cerca de 720p</option>
+            <option value="hd" selected>HD · cerca de 1080p</option>
+            <option value="best">La más alta</option>
+          </select>
+        </label>
+        <label class="field">Clips por página
+          <input id="perPage" type="number" min="8" max="80" value="24">
+        </label>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="progress" id="progress"><span id="bar"></span></div>
+      <div id="status" class="msg"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="searchAll" type="button" disabled>Buscar todas</button>
+        <button class="btn" id="searchMissing" type="button" disabled>Solo las vacías</button>
+        <button class="btn ghost" id="testKey" type="button">Probar clave</button>
+        <button class="btn ghost" id="clearPicks" type="button" disabled>Quitar selección</button>
+      </div>
+    </section>
+
+    <div id="list"></div>
+  </div>
+
+  <div class="dock">
+    <div class="wrap">
+      <div>
+        <b id="pickCount">0 clips</b>
+        <small id="pickHint">Marca uno por toma y baja el ZIP</small>
+      </div>
+      <button class="btn primary" id="download" type="button" disabled>Bajar ZIP</button>
+    </div>
+  </div>
+
+  <div class="modal" id="modal">
+    <div>
+      <video id="player" controls playsinline></video>
+      <div class="credit" id="credit"></div>
+      <button class="btn" id="closeModal" type="button" style="margin-top:8px">Cerrar</button>
+    </div>
+  </div>
+
+<script>
+const EXAMPLE_CSV = "tiempo,audio,busqueda,alternativa\n0:00.0-0:04.6,Entra al banco y pide $20.000,man entering bank asking teller for money,customer talking to bank teller\n0:04.6-0:06.4,No mostr\u00f3 ning\u00fan arma,man hands visible bank counter,bank customer empty hands counter\n0:06.4-0:08.3,No amenaz\u00f3 a la cajera,calm man talking bank teller,customer speaking calmly to teller\n0:08.3-0:12.2,Recibe dinero y sale,bank teller handing cash to man,man leaving bank with cash\n0:12.2-0:15.6,Descubre que recibi\u00f3 menos,man counting cash outside bank,man checking money in hands\n0:15.6-0:19.0,Faltan los $20.000 y decide regresar,man disappointed counting cash,man turning back toward bank\n0:19.0-0:21.2,Puerta cerrada,man at locked bank door,locked bank entrance\n0:21.2-0:24.3,Polic\u00eda llegando,police cars arriving bank,police responding to bank\n0:24.3-0:28.5,\"Syracuse, Nueva York, 2012\",Syracuse New York downtown,Syracuse New York street\n0:28.5-0:32.4,Presentaci\u00f3n de Arthur,young man portrait neutral,28 year old man portrait\n0:32.4-0:36.9,Llega a Alliance Bank por la ma\u00f1ana,man approaching bank morning,customer arriving bank branch\n0:36.9-0:40.2,Se dirige a ventanilla,man walking toward bank teller,customer approaching teller counter\n0:40.2-0:42.9,Pide $20.000 en efectivo,man requesting cash bank teller,customer asking teller for cash\n0:42.9-0:45.9,Polic\u00eda de Syracuse informa despu\u00e9s,police report paperwork desk,detective reviewing incident report\n0:45.9-0:49.0,No mostr\u00f3 arma,man hands visible at bank counter,customer standing unarmed bank teller\n0:49.0-0:51.8,No amenaza a empleada,calm customer talking female teller,bank teller conversation customer\n0:51.8-0:54.8,Cajera se niega,bank teller refusing customer request,female teller saying no customer\n0:54.8-0:56.4,Arthur insiste,man continuing conversation teller,customer insisting at bank counter\n0:56.4-1:01.6,Cajera entrega cierta cantidad,bank teller handing cash customer,teller giving money across counter\n1:01.6-1:05.1,Cantidad exacta no revelada,cash on bank counter close up,stack of cash bank counter\n1:05.1-1:06.4,Arthur toma el dinero,man taking cash from bank counter,customer picking up money\n1:06.4-1:07.9,Sale de la sucursal,man walking out of bank,customer leaving bank branch\n1:07.9-1:12.1,Banco llama a emergencias,bank employee emergency phone call,teller calling police\n1:12.1-1:16.7,Polic\u00eda env\u00eda agentes,police dispatcher sending officers,police cars responding emergency\n1:16.7-1:19.8,Oficiales van al banco,police cruiser driving city street,police car responding call\n1:19.8-1:23.0,Arthur a\u00fan tiene el dinero,man holding cash outside,man walking with cash in hand\n1:23.0-1:26.1,Comprueba cu\u00e1nto recibi\u00f3,man counting money,man checking cash amount\n1:26.1-1:31.3,Es menos de $20.000,man disappointed counting cash,man noticing missing money\n1:31.3-1:33.2,Decide regresar,man walking back toward bank,man turning around street\n1:33.2-1:37.8,Dentro saben que llega la polic\u00eda,bank employees worried inside branch,bank staff emergency situation\n1:37.8-1:39.8,Cierran puertas,employee locking bank door,locking glass entrance doors\n1:39.8-1:44.5,Arthur vuelve y no puede entrar,man trying locked bank door,man pulling locked glass door\n1:44.5-1:48.1,Llegan los agentes,police officers arriving bank,police cars outside bank\n1:48.1-1:53.5,Lo encuentran intentando entrar,man trying locked bank entrance police arriving,man outside locked bank door\n1:53.5-1:55.3,Oficiales se acercan,police officers approaching man,officers walking toward suspect\n1:55.3-1:57.3,Lo detienen,police detaining man outside bank,man arrested near bank entrance\n1:57.3-2:00.0,No opone resistencia,calm man detained by police,peaceful police detention\n2:00.0-2:02.3,Traslado bajo custodia,police escort man to patrol car,detained man escorted by officers\n2:02.3-2:07.5,Polic\u00eda documenta lo ocurrido,police writing incident report,detective documenting bank incident\n2:07.5-2:10.0,Hablan con empleados,detectives interviewing bank employees,police questioning bank teller\n2:10.0-2:14.7,Confirman solicitud de $20.000,detective reviewing teller statement,police interview bank employee\n2:14.7-2:19.2,Cantidad entregada no se hace p\u00fablica,cash evidence paperwork,money documents investigation\n2:19.2-2:24.5,Autoridades no reportan arma,police report no weapon,detective reviewing incident paperwork\n2:24.5-2:29.7,Ese detalle influye en presentaci\u00f3n del caso,detective reviewing legal case documents,police case paperwork desk\n2:29.7-2:34.4,Cargo de hurto mayor en cuarto grado,criminal charge documents courthouse,legal charges paperwork\n2:34.4-2:38.4,Detenido esperando juez,suspect in police custody paperwork,court appearance pending documents\n2:38.4-2:42.7,Caso llama atenci\u00f3n fuera de Syracuse,news coverage spreading across America,multiple news websites story\n2:42.7-2:46.2,Secuencia descrita por polic\u00eda,police statement news report,detective report documents\n2:46.2-2:48.8,Medios locales publican historia,local news newsroom,local newspaper breaking news\n2:48.8-2:52.9,Associated Press distribuye historia,news wire newsroom,journalist typing breaking news\n2:52.9-2:56.9,Aparece en medios de EE. UU.,newspapers across United States,multiple news websites screens\n2:56.9-3:01.5,Reportes identifican Alliance Bank,bank exterior news coverage,bank branch exterior reporters\n3:01.5-3:05.1,Noticia publicada horas despu\u00e9s,breaking news article computer,newspaper article close up\n3:05.1-3:09.7,Arthur espera audiencia,court hearing pending paperwork,courthouse exterior legal documents\n3:09.7-3:12.9,Informaci\u00f3n dada por polic\u00eda,police spokesperson press briefing,police report documents\n3:12.9-3:16.1,Sin abogado registrado,legal paperwork no attorney,court documents attorney field\n3:16.1-3:20.4,Todav\u00eda no hab\u00eda condena,court case pending documents,legal case awaiting decision\n3:20.4-3:25.1,Documentado: cargo de hurto mayor,criminal charge court paperwork,legal charges case file\n3:25.1-3:29.8,Detenci\u00f3n pendiente de comparecencia,court appearance pending case file,courthouse legal documents pending hearing\n";
+const $ = (id) => document.getElementById(id);
+const state = { rows: [], abort: null };
+
+const TIME_RE = /(\d{1,2}:\d{2}(?:\.\d{1,3})?)\s*[-–—]\s*(\d{1,2}:\d{2}(?:\.\d{1,3})?)/;
+
+function slug(s) {
+  return String(s || "clip").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 42) || "clip";
+}
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => {
+    if (c === "&") return "&" + "amp;";
+    if (c === "<") return "&" + "lt;";
+    if (c === ">") return "&" + "gt;";
+    if (c === '"') return "&" + "quot;";
+    return "&" + "#39;";
+  });
+}
+function setStatus(text, kind) {
+  const el = $("status");
+  el.className = "msg" + (kind ? " " + kind : "");
+  el.textContent = text || "";
+}
+function setProgress(frac) {
+  const box = $("progress");
+  box.style.display = frac == null ? "none" : "block";
+  $("bar").style.width = frac == null ? "0" : Math.round(frac * 100) + "%";
+}
+
+function parseCSV(text) {
+  const clean = String(text || "").replace(/^\uFEFF/, "").trim();
+  if (!clean) throw new Error("El CSV está vacío.");
+  const first = clean.split(/\r?\n/, 1)[0];
+  const delim = (first.match(/;/g) || []).length > (first.match(/,/g) || []).length ? ";" : ",";
+  const rows = [];
+  let row = [], cell = "", q = false;
+  for (let i = 0; i < clean.length; i++) {
+    const c = clean[i];
+    if (q) {
+      if (c === '"') {
+        if (clean[i + 1] === '"') { cell += '"'; i++; }
+        else q = false;
+      } else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === delim) { row.push(cell.trim()); cell = ""; }
+    else if (c === "\n") { row.push(cell.trim()); rows.push(row); row = []; cell = ""; }
+    else if (c !== "\r") cell += c;
+  }
+  if (cell.length || row.length) { row.push(cell.trim()); rows.push(row); }
+  const header = rows[0].map((h) => h.toLowerCase());
+  const idx = (names) => header.findIndex((h) => names.some((n) => h.includes(n)));
+  let ti = idx(["tiempo", "time"]);
+  let ai = idx(["audio", "sonando", "texto", "narr"]);
+  let bi = idx(["busqueda", "búsqueda", "principal", "search", "query"]);
+  let alti = idx(["alternativa", "alt"]);
+  const start = ti >= 0 || bi >= 0 ? 1 : 0;
+  if (start === 0) { ti = 0; ai = 1; bi = 2; alti = 3; }
+  const out = [];
+  for (const r of rows.slice(start)) {
+    if (!r.some(Boolean)) continue;
+    const joined = r.join(" ");
+    const m = joined.match(TIME_RE);
+    const tiempo = (ti >= 0 && r[ti]) || (m ? m[0] : "");
+    const audio = ai >= 0 ? r[ai] || "" : "";
+    const busqueda = bi >= 0 ? r[bi] || "" : "";
+    const alternativa = alti >= 0 ? r[alti] || "" : "";
+    if (!busqueda && !alternativa && !m) continue;
+    out.push(makeRow(tiempo, audio, busqueda, alternativa));
+  }
+  if (!out.length) throw new Error("No encontré filas con búsqueda. Revisa las columnas tiempo, audio, busqueda, alternativa.");
+  return out;
+}
+
+function makeRow(tiempo, audio, busqueda, alternativa) {
+  return {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+    tiempo: String(tiempo || "").replace(/\s+/g, ""),
+    audio: audio || "",
+    busqueda: busqueda || "",
+    alternativa: alternativa || "",
+    query: busqueda || alternativa || "",
+    lastQuery: "",
+    cache: {},
+    results: [],
+    page: 1,
+    more: false,
+    picked: null,
+    status: ""
+  };
+}
+
+function columnEdges(headerItems) {
+  const cells = clusterCells(headerItems);
+  return cells.map((c) => c.x).filter((x, i, arr) => i === 0 || x - arr[i - 1] > 30);
+}
+function bandOf(x, edges) {
+  let best = 0;
+  for (let i = 0; i < edges.length; i++) {
+    const next = i + 1 < edges.length ? edges[i + 1] : Infinity;
+    if (x < (edges[i] + next) / 2) return i;
+  }
+  return Math.max(0, edges.length - 1);
+}
+function lineColumns(items, edges) {
+  const cols = edges.map(() => []);
+  [...items].sort((a, b) => a.x - b.x).forEach((it) => {
+    cols[bandOf(it.x, edges)].push(it.str);
+  });
+  return cols.map((c) => c.join(" ").replace(/\s+/g, " ").trim());
+}
+function rowsFromItems(items) {
+  const pages = new Map();
+  items.filter((it) => it && it.str && String(it.str).trim()).forEach((it) => {
+    const page = it.page || 1;
+    if (!pages.has(page)) pages.set(page, []);
+    pages.get(page).push({
+      str: String(it.str).trim(),
+      x: it.transform ? it.transform[4] : it.x,
+      y: Math.round(it.transform ? it.transform[5] : it.y)
+    });
+  });
+  const out = [];
+  [...pages.keys()].sort((a, b) => a - b).forEach((page) => {
+    const pts = pages.get(page);
+    pts.sort((a, b) => b.y - a.y || a.x - b.x);
+    const lines = [];
+    for (const p of pts) {
+      const last = lines[lines.length - 1];
+      if (!last || Math.abs(last.y - p.y) > 3) lines.push({ y: p.y, items: [p] });
+      else last.items.push(p);
+    }
+    const header = lines.find((ln) => /tiempo/i.test(ln.items.map((i) => i.str).join(" ")) && /b[uú]squeda|principal|alternativa/i.test(ln.items.map((i) => i.str).join(" ")));
+    const edges = header ? columnEdges(header.items) : null;
+    for (const ln of lines) {
+      const joined = ln.items.map((i) => i.str).join(" ");
+      if (/tiempo exacto|búsqueda principal|duración del archivo|stock sincronizado/i.test(joined)) continue;
+      const m = joined.match(TIME_RE);
+      if (!m) continue;
+      let audio = "", busqueda = "", alternativa = "";
+      if (edges && edges.length >= 3) {
+        const cols = lineColumns(ln.items, edges);
+        audio = cols[1] || "";
+        busqueda = cols[2] || "";
+        alternativa = cols[3] || "";
+      } else {
+        const cells = clusterCells(ln.items).filter((c) => !TIME_RE.test(c.text));
+        audio = cells[0] ? cells[0].text : "";
+        busqueda = cells[1] ? cells[1].text : "";
+        alternativa = cells[2] ? cells[2].text : "";
+      }
+      if (!busqueda && alternativa) { busqueda = alternativa; alternativa = ""; }
+      out.push(makeRow(m[0], audio, busqueda, alternativa));
+    }
+  });
+  return out;
+}
+function clusterCells(items) {
+  const sorted = [...items].sort((a, b) => a.x - b.x);
+  const cells = [];
+  for (const it of sorted) {
+    const prev = cells[cells.length - 1];
+    if (!prev || it.x - prev.end > 18) cells.push({ x: it.x, end: it.x + Math.max(8, it.str.length * 4), text: it.str });
+    else { prev.text += " " + it.str; prev.end = it.x + 8; }
+  }
+  return cells;
+}
+
+async function parsePDF(buf) {
+  if (!window.pdfjsLib) throw new Error("No se pudo cargar el lector de PDF. Prueba el CSV o revisa la conexión.");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const items = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    items.push(...content.items.map((it) => ({ ...it, page: p })));
+  }
+  const rows = rowsFromItems(items);
+  if (!rows.length) throw new Error("Leí el PDF pero no armé las filas. Exporta la hoja a CSV y súbela.");
+  return rows;
+}
+
+function clipCard(row, index, video) {
+  const picked = row.picked === video.id;
+  return '<button class="clip ' + (picked ? "picked" : "") + '" type="button" data-pick="' + index + ":" + video.id + '">'
+    + '<span class="check">' + (picked ? "Viendo" : "Elegir") + "</span>"
+    + '<img src="' + escapeHtml(video.image) + '" alt="">'
+    + '<div class="meta"><b>' + video.duration + "s · " + video.width + "×" + video.height + "</b><br>" + escapeHtml(video.user) + "</div>"
+    + "</button>";
+}
+function render() {
+  const list = $("list");
+  const y = window.scrollY;
+  const n = state.rows.length;
+  const picked = state.rows.filter((r) => r.picked).length;
+  $("searchAll").disabled = !n;
+  $("searchMissing").disabled = !n;
+  $("clearPicks").disabled = !picked;
+  $("download").disabled = !picked;
+  $("pickCount").textContent = picked + (picked === 1 ? " clip" : " clips");
+  $("pickHint").textContent = n ? n + " tomas en la hoja" : "Carga una hoja para empezar";
+  $("stats").innerHTML = n
+    ? '<span class="pill">' + n + ' tomas</span><span class="pill">' + picked + ' elegidas</span><span class="pill">' + state.rows.filter((r) => r.results.length).length + " con resultados</span>"
+    : "";
+  if (!n) {
+    list.innerHTML = '<div class="empty">Carga el PDF de la hoja o el CSV. Cada fila es una toma: se busca, eliges el clip y el ZIP sale con el nombre del tiempo.</div>';
+    return;
+  }
+  list.innerHTML = state.rows.map((r, i) => {
+    const active = (q) => q && cacheKey(q) === cacheKey(r.query);
+    const mainBtn = r.busqueda
+      ? '<button class="btn ' + (active(r.busqueda) ? "primary" : "ghost") + '" type="button" data-main="' + i + '">Principal</button>'
+      : "";
+    const altBtn = r.alternativa && cacheKey(r.alternativa) !== cacheKey(r.busqueda)
+      ? '<button class="btn ' + (active(r.alternativa) ? "primary" : "ghost") + '" type="button" data-alt="' + i + '">Alternativa</button>'
+      : "";
+    const backBtn = r.lastQuery && !active(r.lastQuery)
+      ? '<button class="btn ghost" type="button" data-back="' + i + '">Volver</button>'
+      : "";
+    const chosen = r.results.find((v) => v.id === r.picked);
+    const preview = chosen && previewFile({ video_files: chosen.files });
+    const previewBox = preview
+      ? '<video class="preview" src="' + escapeHtml(preview.link) + '" poster="' + escapeHtml(chosen.image) + '" controls playsinline muted autoplay loop></video>'
+      : "";
+    const more = r.more
+      ? '<button class="btn" type="button" data-more="' + i + '">Ver más clips</button>'
+      : "";
+    const play = more
+      ? '<div class="alts">' + more + "</div>"
+      : "";
+    return '<article class="seg" data-i="' + i + '">'
+      + '<div class="head"><div><div class="time">' + escapeHtml(r.tiempo || "sin tiempo") + " · toma " + (i + 1) + "</div>"
+      + '<div class="audio">' + escapeHtml(r.audio || "Sin descripción") + "</div></div>"
+      + '<span class="pill">' + escapeHtml(r.status || (r.picked ? "elegida" : "pendiente")) + "</span></div>"
+      + '<input class="q" data-q="' + i + '" value="' + escapeHtml(r.query) + '" aria-label="Búsqueda">'
+      + '<div class="alts"><button class="btn" type="button" data-search="' + i + '">Buscar esta</button>' + mainBtn + altBtn + backBtn + "</div>"
+      + previewBox
+      + '<div class="grid">' + r.results.map((v) => clipCard(r, i, v)).join("") + "</div>"
+      + play + "</article>";
+  }).join("");
+  requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
+function pickFileFor(video, mode) {
+  const files = (video.video_files || []).filter((f) => /mp4/i.test(f.file_type || "") && f.link && f.width);
+  if (!files.length) return null;
+  const target = mode === "best" ? 2160 : mode === "hd" ? 1080 : 720;
+  const ranked = [...files].sort((a, b) => {
+    const da = Math.abs((a.height || a.width) - target);
+    const db = Math.abs((b.height || b.width) - target);
+    if (mode === "best") return (b.height || 0) - (a.height || 0);
+    if (da !== db) return da - db;
+    return (a.width * a.height) - (b.width * b.height);
+  });
+  return ranked[0];
+}
+function previewFile(video) {
+  const files = (video.video_files || []).filter((f) => /mp4/i.test(f.file_type || "") && f.link);
+  return [...files].sort((a, b) => (a.width || 9999) - (b.width || 9999))[0] || null;
+}
+function mapVideo(v) {
+  return {
+    id: v.id,
+    image: v.image,
+    duration: v.duration,
+    width: v.width,
+    height: v.height,
+    url: v.url,
+    user: v.user?.name || "Pexels",
+    userUrl: v.user?.url || "https://www.pexels.com",
+    files: v.video_files || []
+  };
+}
+
+function apiKey() {
+  return $("apiKey").value.trim().replace(/^Bearer\s+/i, "");
+}
+function pageSize() {
+  return Math.min(80, Math.max(8, Number($("perPage").value) || 24));
+}
+async function searchQuery(query, page, forceAny) {
+  const key = apiKey();
+  if (!key) throw new Error("Falta la clave API de Pexels.");
+  const params = new URLSearchParams({ query, per_page: String(pageSize()), page: String(page || 1) });
+  const ori = forceAny ? "" : $("orientation").value;
+  if (ori) params.set("orientation", ori);
+  let res;
+  try {
+    res = await fetch("https://api.pexels.com/v1/videos/search?" + params.toString(), {
+      headers: { Authorization: key }
+    });
+  } catch (err) {
+    throw new Error("El navegador bloqueó la llamada a Pexels. " + (err.message || "Sin conexión."));
+  }
+  if (res.status === 401 || res.status === 403) throw new Error("La clave de Pexels no sirve. Cópiala otra vez desde pexels.com/api, sin espacios ni la palabra Bearer.");
+  if (res.status === 429) {
+    const err = new Error("Pexels pidió una pausa (límite de búsquedas). Espera un minuto y pulsa Solo las vacías.");
+    err.retry = true;
+    throw err;
+  }
+  if (!res.ok) throw new Error("Pexels respondió " + res.status + ".");
+  const data = await res.json();
+  let videos = (data.videos || []).map(mapVideo);
+  if (!videos.length && ori && (page || 1) === 1) return searchQuery(query, 1, true);
+  return { videos, page: page || 1, more: Boolean(data.next_page) && videos.length > 0 };
+}
+
+function cacheKey(q) {
+  return String(q || "").trim().toLowerCase();
+}
+function remember(row) {
+  const key = cacheKey(row.query);
+  if (!key) return;
+  if (!row.cache) row.cache = {};
+  row.cache[key] = {
+    query: row.query,
+    results: row.results.slice(),
+    page: row.page,
+    more: row.more,
+    picked: row.picked,
+    status: row.status
+  };
+}
+function restore(row, query) {
+  const hit = row.cache && row.cache[cacheKey(query)];
+  if (!hit) return false;
+  if (cacheKey(query) !== cacheKey(row.query)) row.lastQuery = row.query;
+  row.query = hit.query;
+  row.results = hit.results;
+  row.page = hit.page;
+  row.more = hit.more;
+  row.picked = hit.picked;
+  row.status = hit.status || (hit.results.length + " clips");
+  return true;
+}
+async function useQuery(row, query) {
+  const next = String(query || "").trim();
+  if (!next) return;
+  if (cacheKey(next) === cacheKey(row.query)) return;
+  remember(row);
+  if (restore(row, next)) return;
+  row.lastQuery = row.query;
+  row.query = next;
+  row.picked = null;
+  await searchRow(row);
+  remember(row);
+}
+async function searchRow(row) {
+  row.status = "buscando";
+  render();
+  try {
+    const found = await searchQuery(row.query, 1);
+    row.results = found.videos;
+    row.page = found.page;
+    row.more = found.more;
+    row.status = row.results.length ? row.results.length + " clips" : "sin resultados";
+    if (!row.picked && row.results[0]) row.picked = row.results[0].id;
+    remember(row);
+  } catch (err) {
+    row.status = "error";
+    throw err;
+  }
+}
+async function moreRow(row) {
+  const found = await searchQuery(row.query, (row.page || 1) + 1);
+  const seen = new Set(row.results.map((v) => v.id));
+  found.videos.forEach((v) => { if (!seen.has(v.id)) row.results.push(v); });
+  row.page = found.page;
+  row.more = found.more;
+  row.status = row.results.length + " clips";
+  remember(row);
+}
+
+async function searchMany(onlyMissing) {
+  const key = apiKey();
+  if (!key) { setStatus("Pega la clave API de Pexels antes de buscar.", "bad"); return; }
+  const jobs = state.rows.filter((r) => r.query && (!onlyMissing || !r.results.length));
+  if (!jobs.length) { setStatus("No hay tomas pendientes.", "warn"); return; }
+  state.abort = new AbortController();
+  $("searchAll").disabled = true;
+  let done = 0;
+  let failed = 0;
+  let lastError = "";
+  setProgress(0);
+  for (const row of jobs) {
+    if (state.abort.signal.aborted) break;
+    setStatus("Buscando " + (done + 1) + " de " + jobs.length + ": " + row.query);
+    try {
+      await searchRow(row);
+      if (!row.results.length) failed++;
+    } catch (err) {
+      failed++;
+      lastError = err.message;
+      row.status = "error";
+      setStatus(err.message, "bad");
+      render();
+      if (err.retry || /no sirve|bloqueó|Falta la clave/i.test(err.message)) break;
+    }
+    done++;
+    setProgress(done / jobs.length);
+    render();
+    await new Promise((r) => setTimeout(r, 280));
+  }
+  setProgress(null);
+  $("searchAll").disabled = false;
+  const picked = state.rows.filter((r) => r.picked).length;
+  if (lastError && !picked) setStatus(lastError, "bad");
+  else if (picked) setStatus("Listo. " + picked + " clips marcados. Cambia los que no te sirvan y baja el ZIP.", "ok");
+  else setStatus("Busqué " + done + " tomas y Pexels no devolvió clips. Prueba orientación Cualquiera o pulsa Probar clave.", "warn");
+  render();
+}
+
+let pendingFile = null;
+function isPhone() {
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+async function saveReadyFile() {
+  if (!pendingFile) return;
+  const file = pendingFile;
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: file.name });
+      setStatus("Guardado desde la hoja de compartir.", "ok");
+      return;
+    }
+  } catch (err) {
+    if (err && err.name === "AbortError") { setStatus("Guardado cancelado.", "warn"); return; }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(file);
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setStatus("Si no se bajó solo, vuelve a tocar Guardar ZIP.", "ok");
+}
+async function downloadZip() {
+  if (!window.JSZip) throw new Error("No cargó el empaquetador. Revisa la conexión y recarga la página.");
+  const mode = isPhone() ? "light" : $("quality").value;
+  const chosen = state.rows.map((r, i) => ({ r, i })).filter(({ r }) => r.picked);
+  if (!chosen.length) return;
+  if (chosen.length > 12 && !confirm("En el iPhone un ZIP grande se cae. Bajo " + chosen.length + " clips en calidad ligera. ¿Sigo?")) return;
+  $("download").disabled = true;
+  const zip = new JSZip();
+  const manifest = ["toma,tiempo,audio,busqueda,archivo,pexels,autor,autor_url"];
+  let ok = 0, fail = 0, lastFail = "";
+  for (let n = 0; n < chosen.length; n++) {
+    const { r, i } = chosen[n];
+    const video = r.results.find((v) => v.id === r.picked);
+    const file = video && pickFileFor({ video_files: video.files }, mode);
+    const name = (n + 1) + ".mp4";
+    setStatus("Bajando " + (n + 1) + " de " + chosen.length);
+    setProgress(n / chosen.length);
+    if (!file) { fail++; lastFail = "sin archivo"; manifest.push(csvLine([i + 1, r.tiempo, r.audio, r.query, "", "", "", "sin archivo"])); continue; }
+    try {
+      const res = await fetch(file.link);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      zip.file(name, await res.arrayBuffer());
+      ok++;
+      manifest.push(csvLine([i + 1, r.tiempo, r.audio, r.query, name, video.url, video.user, video.userUrl]));
+    } catch (err) {
+      fail++;
+      lastFail = err.message || "falló la descarga";
+      manifest.push(csvLine([i + 1, r.tiempo, r.audio, r.query, name, video?.url || "", video?.user || "", "falló: " + lastFail]));
+    }
+  }
+  if (!ok) throw new Error("No pude bajar ningún clip. " + lastFail);
+  zip.file("creditos.csv", manifest.join("\n"));
+  zip.file("LEEME.txt", "Clips de Pexels (https://www.pexels.com). Cada fila de creditos.csv tiene el autor y el enlace.\n");
+  setStatus("Armando el ZIP…");
+  const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+  pendingFile = new File([blob], "stock-sync.zip", { type: "application/zip" });
+  $("download").textContent = "Guardar ZIP";
+  $("download").disabled = false;
+  setProgress(null);
+  setStatus((fail ? ok + " clips listos, " + fail + " fallaron. " : ok + " clips listos. ") + "Toca Guardar ZIP otra vez para mandarlo a Archivos.", "ok");
+}
+function csvLine(cols) {
+  return cols.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",");
+}
+
+function loadRows(rows, label) {
+  state.rows = rows;
+  render();
+  setStatus(label, "ok");
+}
+
+$("saveKey").onclick = () => {
+  const key = $("apiKey").value.trim();
+  if (key.length < 10) { $("keyMsg").textContent = "Esa clave se ve corta."; $("keyMsg").className = "msg bad"; return; }
+  localStorage.setItem("pexelsKey", key);
+  $("keyMsg").textContent = "Clave guardada en este navegador.";
+  $("keyMsg").className = "msg ok";
+};
+$("forgetKey").onclick = () => { localStorage.removeItem("pexelsKey"); $("apiKey").value = ""; $("keyMsg").textContent = "Clave borrada."; $("keyMsg").className = "msg"; };
+$("pickFile").onclick = () => $("file").click();
+$("file").onchange = () => { if ($("file").files[0]) ingest($("file").files[0]); };
+$("loadExample").onclick = async () => {
+  try {
+    const res = await fetch("arthur-bundrage.csv");
+    if (!res.ok) throw new Error("no");
+    loadRows(parseCSV(await res.text()), "Hoja de Arthur cargada.");
+  } catch {
+    loadRows(parseCSV(EXAMPLE_CSV), "Hoja de Arthur cargada.");
+  }
+};
+const drop = $("drop");
+["dragover", "dragenter"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("hot"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("hot"); }));
+drop.addEventListener("drop", (e) => { const f = e.dataTransfer.files?.[0]; if (f) ingest(f); });
+
+async function ingest(file) {
+  setStatus("Leyendo " + file.name + "…");
+  try {
+    if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") {
+      loadRows(await parsePDF(await file.arrayBuffer()), file.name + " listo.");
+    } else {
+      loadRows(parseCSV(await file.text()), file.name + " listo.");
+    }
+  } catch (err) {
+    setStatus(err.message || "No pude leer ese archivo.", "bad");
+  }
+}
+
+$("list").addEventListener("input", (e) => {
+  const i = e.target.dataset.q;
+  if (i == null) return;
+  state.rows[i].query = e.target.value;
+});
+$("list").addEventListener("click", async (e) => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.dataset.search != null) {
+    const row = state.rows[t.dataset.search];
+    const typed = t.parentElement.parentElement.querySelector("input").value;
+    try {
+      if (cacheKey(typed) === cacheKey(row.query)) await searchRow(row);
+      else await useQuery(row, typed);
+      setStatus(row.status, row.results.length ? "ok" : "warn");
+    } catch (err) { setStatus(err.message, "bad"); }
+    render();
+  }
+  if (t.dataset.main != null) {
+    const row = state.rows[t.dataset.main];
+    try { await useQuery(row, row.busqueda); } catch (err) { setStatus(err.message, "bad"); }
+    render();
+  }
+  if (t.dataset.alt != null) {
+    const row = state.rows[t.dataset.alt];
+    try { await useQuery(row, row.alternativa); } catch (err) { setStatus(err.message, "bad"); }
+    render();
+  }
+  if (t.dataset.back != null) {
+    const row = state.rows[t.dataset.back];
+    try { await useQuery(row, row.lastQuery); } catch (err) { setStatus(err.message, "bad"); }
+    render();
+  }
+  if (t.dataset.pick) {
+    const [i, id] = t.dataset.pick.split(":");
+    const row = state.rows[i];
+    row.picked = row.picked === Number(id) ? null : Number(id);
+    remember(row);
+    render();
+  }
+  if (t.dataset.more != null) {
+    const row = state.rows[t.dataset.more];
+    t.disabled = true;
+    try {
+      await moreRow(row);
+      setStatus(row.status, "ok");
+    } catch (err) {
+      setStatus(err.message, "bad");
+    }
+    render();
+  }
+  if (t.dataset.play != null) openPreview(state.rows[t.dataset.play]);
+});
+function openPreview(row) {
+  const video = row.results.find((v) => v.id === row.picked) || row.results[0];
+  if (!video) return;
+  const file = previewFile({ video_files: video.files });
+  if (!file) return;
+  $("player").src = file.link;
+  $("player").muted = false;
+  $("credit").innerHTML = 'Vídeo de <a href="' + escapeHtml(video.url) + '" target="_blank" rel="noopener">Pexels</a> · ' + escapeHtml(video.user);
+  $("modal").classList.add("open");
+  $("player").play().catch(() => {
+    $("player").muted = true;
+    $("player").play().catch(() => {});
+  });
+}
+$("searchAll").onclick = () => searchMany(false);
+$("searchMissing").onclick = () => searchMany(true);
+$("testKey").onclick = async () => {
+  setStatus("Probando la clave con una búsqueda…");
+  try {
+    const videos = await searchQuery("bank teller");
+    setStatus(videos.videos.length ? "La clave funciona. Pexels devolvió " + videos.videos.length + " clips." : "La clave entró, pero esa búsqueda vino vacía.", videos.videos.length ? "ok" : "warn");
+  } catch (err) {
+    setStatus(err.message, "bad");
+  }
+};
+$("clearPicks").onclick = () => { state.rows.forEach((r) => { r.picked = null; }); render(); };
+$("download").onclick = () => {
+  if (pendingFile) { saveReadyFile(); return; }
+  downloadZip().catch((err) => {
+    setStatus(err.message || "No se pudo armar el ZIP.", "bad");
+    $("download").disabled = false;
+    setProgress(null);
+  });
+};
+$("closeModal").onclick = () => { $("player").pause(); $("modal").classList.remove("open"); };
+$("modal").onclick = (e) => { if (e.target.id === "modal") $("closeModal").click(); };
+
+const saved = localStorage.getItem("pexelsKey");
+if (saved) $("apiKey").value = saved;
+render();
+
+window.StockApp = { parseCSV, rowsFromItems, pickFileFor, slug, makeRow };
+</script>
+</body>
+</html>
